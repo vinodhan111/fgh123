@@ -1,0 +1,12 @@
+Add role-based access control with three roles: admin, developer, tester.
+Create a new rbac.yaml file (separate from jobs.yaml, same directory) with this structure:
+users:
+  - username: admin
+    password_hash: "<hash>"
+    role: admin
+  - username: <name>
+    password_hash: "<hash>"
+    role: developer
+Add a small standalone script generate_password_hash.py that takes a plaintext password as a command-line argument and prints the hash to paste into rbac.yaml — so passwords are never typed or stored in plaintext anywhere, but the file stays just as easy to hand-edit as jobs.yaml. Migrate the existing admin credential out of .env into rbac.yaml as the first user, so all users live in one place going forward. Add rbac.yaml to .gitignore, same as .env currently is.
+Add a roles field (list of role names) to each job entry in jobs.yaml, e.g. roles: [tester, developer]. If a job has no roles field, default it to admin-only — new jobs should be restricted by default, not open by default. The admin role always has access to every job regardless of its roles list — don’t require admin to be explicitly listed on each one.
+Critical: enforce this server-side, on every job-related endpoint — job list, run, history, and log retrieval — not just by hiding cards in the frontend. On login, look up the role from rbac.yaml and store it in the session/token. Every backend endpoint must check the logged-in user’s role against the requested job’s roles list (or allow it outright if the role is admin) before returning any data or executing anything — a user must not be able to run or view a job by calling the API directly, even if the UI never shows them that job’s card. The frontend job list should simply render whatever the backend returns, with no separate client-side filtering logic of its own.
