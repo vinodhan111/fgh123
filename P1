@@ -1,0 +1,16 @@
+Good catch, and apologies for that mix-up — you're right, pgBadger is a completely different flow (external tool, separate VM, SSH-triggered, emailed out), nothing to borrow from there. Here's a clean, standalone version with no reference to it:
+
+**Prompt for Copilot:**
+
+> Extend the SKE Resource Utilization job to additionally generate a downloadable, interactive HTML report — keep the existing live plain-text console output exactly as it is; this is a second artifact alongside it, not a replacement.
+>
+> Use Plotly (Python) to build the report, with `include_plotlyjs='inline'` so the output file is fully self-contained with no external CDN calls. Build it from the same sampled data the script already collects, including:
+> - A grouped bar chart showing CPU% and Memory% utilization per namespace against their quota limits
+> - A pie chart showing each namespace's share of total cluster-wide resource usage
+> - Hovering over any namespace's bar or pie slice should reveal that namespace's per-deployment breakdown in the tooltip, using Plotly's `hovertemplate`/`customdata`, styled via `hoverlabel` to match the app's existing dark blue theme
+>
+> Save the generated HTML file into that run's own output folder (same location pattern already used for run history/logs). Add an endpoint to serve it as a downloadable file (`Content-Disposition: attachment`, not rendered inline).
+>
+> In the job's live output/log view, the Cancel button currently sits at the top of the console panel while a job is running. Once that run's status becomes `success`, replace the Cancel button in that same spot with a "Download HTML Report" link — clicking it downloads the file directly to the user's machine. Also surface this same download link next to this job's entries in the History panel, so past reports stay retrievable later, not just immediately after the run finishes.
+>
+> This report is for non-technical senior management with no Kubernetes background — favor clear labels, percentages, and visual proportion over raw technical values like millicores or GiB.
