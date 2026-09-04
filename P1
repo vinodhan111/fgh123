@@ -1,0 +1,45 @@
+Centralize SKE cluster authentication and add session/history handling to the DevOps console.
+
+1. Shared cluster session manager
+- Extract SKE login (SKECTL binary — cluster name + credentials → token) into one
+  shared module, e.g. core/ske_session.py, used by every job AND the Dashboard tab.
+  Remove any dashboard-only login logic.
+- Cache token + expiry, keyed by cluster/credential (not by user/browser session).
+- Lazy: never log in proactively. Only log in when an actual request needs the
+  cluster (job execution, or a dashboard Status/Metrics fetch) and no valid
+  cached token exists.
+- Single-flight: if the token is expired/missing when a request arrives, only one
+  login attempt should run even with concurrent requests; others await that same
+  in-flight login (asyncio.Lock per credential key).
+- Proactive refresh: if the token has under 5 minutes left AND there is at least
+  one active consumer (an in-flight job, or a namespace with an active metrics
+  poller), refresh in the background. If nothing is actively using it, let it
+  lapse — don't refresh for no reason.
+
+2. App-level session timeout (separate from the SKE token above)
+- Default: 10-minute inactivity timeout on the app's own per-user login session.
+- Exception: while a user has the Metrics tab open with polling running, treat
+  each poll tick as activity and reset/suspend their inactivity timer. Everywhere
+  else (Jobs list, Status tab, idle on any screen), the normal 10-minute timeout
+  applies unchanged.
+- Implement as one shared activity/session middleware, not duplicated per route.
+
+3. Metrics history + report generation
+- Mirror the existing job history pattern (history_limit +
+  logs/<job_id>/console_out/<run_number>/): when a namespace's metrics-polling
+  session ends (Stop clicked, last active viewer disconnects, or the shared
+  poller idles out), persist that session's CPU/memory datapoints to disk under
+  logs/dashboard_metrics/<namespace>/<run_number>/, with a JSON datapoints file
+  plus metadata (namespace, start time, end time, poll interval).
+- Generate a downloadable HTML report from the session data using the existing
+  Plotly report pattern already used for the SKE Resource Utilization and
+  PgBadger jobs.
+- Keep only the last 5 sessions per namespace; evict the oldest beyond that,
+  same eviction logic as job history.
+- Add a small "History" list in the Metrics tab (last 5 sessions with time
+  range) with a way to open/download each report — same UI pattern as the
+  existing per-job history list.
+
+Follow the conventions already documented in .github/copilot-instructions.md and
+reuse existing helpers (RBAC, logging structure, Plotly report generator) rather
+than introducing new patterns.
