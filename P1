@@ -1,0 +1,11 @@
+PROMPT 2 - CENTRALIZE, BASED ON THE AUDIT ALREADY PRODUCED
+
+Using the audit report you already produced in this session, proceed to centralize the patterns you identified as duplicated, but do this in two tiers.
+
+Tier one, proceed without asking. This covers any pattern where the existing implementations are functionally identical today, meaning consolidating them into one shared implementation would not change any user-visible behavior or output. This includes dead code that is confirmed unused, stale duplicate files, documentation that references components or paths that no longer exist or have moved, and UI or logic patterns that already produce the same result through different code. For each of these, remove or consolidate as appropriate, update anything that references the old version, and keep a short running log of exactly what you changed and why.
+
+Tier two, stop and explain before touching anything. This covers any pattern where the audit found the existing implementations are not functionally identical today, meaning they currently behave differently in some way such as different timeouts, different defaults, different validation logic, different classification rules, or one implementation handling fewer cases or being less robust than another. Also treat anything related to access control, approval or sign-off gates, or authentication as tier two regardless of how small the difference looks. For each tier two item, describe in plain language, not code, exactly how the current implementations differ in behavior, and ask which behavior should become the standard going forward, before writing any change.
+
+Work through this one shared module or component at a time rather than as one large change, so each step can be checked before moving to the next. After each tier one change, briefly note how I could manually verify nothing broke, since there is no automated test suite covering this.
+
+Do not touch anything you flagged in the audit as an intentional design choice, such as a deliberate platform split between script folders.
