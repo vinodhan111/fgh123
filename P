@@ -1,0 +1,10 @@
+Consolidate all existing hover tooltip and popover implementations in the codebase into a single shared component.
+
+Requirements for the shared component:
+1. Visual style: dark background, rounded corners (8 to 12px), subtle border or drop shadow, matching the dark rounded tooltip style already used in parts of the UI.
+2. Trigger: shows on mouse hover, and also on keyboard focus for accessibility.
+3. Positioning: automatically repositions to stay within the viewport (flips above/below or left/right near screen edges).
+4. Content modes: support two content types through the same component - a simple text string, and a structured list of rows (each row being a label plus one or more values, for example "name: X running, Y not running").
+5. Reuse: export this as one component from the shared component library and replace every existing ad hoc tooltip or popover with it. Do not create a second version of this component elsewhere.
+
+Before making changes, list every place in the codebase currently rendering a tooltip, custom hover box, or popover. Then replace each one with the new shared component. Confirm none of the replacements change existing functionality or remove any currently displayed information.
