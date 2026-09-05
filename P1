@@ -1,0 +1,31 @@
+We are extending the internal DevOps job-runner tool with a centralized cross-application dashboard. It needs to aggregate data across every onboarded application, currently a handful and expected to grow to five or six over time. Implement the following two parts.
+
+1. Centralized session management
+
+Refactor session handling into a single central session manager module used by everything that needs a cluster login: individually triggered jobs, the existing per-application dashboard tabs, and the new cross-application dashboard described below.
+
+Session state must be tracked per application, not as one global session. Each application's token, expiry time, and active consumer count should be stored independently, keyed by application ID.
+
+Provide one shared function, for example get_session(app_id), that every caller uses. If a valid, non-expired session already exists for that application, it returns that session. If not, it performs a fresh login for that application only, stores the result, and returns it.
+
+Add a lock scoped to each individual application inside get_session. If two callers request a session for the same application at the same time and no valid session exists yet, only one of them should actually perform the login. The other should wait and then reuse the session the first one just created. This must hold true regardless of what kind of caller each one is, for example a dashboard poll and a manually triggered job, or two different users triggering jobs on the same application at the same moment.
+
+Existing behavior for individual jobs must keep working unchanged: once a job is running against an application, its session counts as an active consumer, and the existing keep-alive and proactive relogin logic for jobs should not be affected by this refactor.
+
+The new cross-application dashboard should be treated as just one more consumer type. It must call the same get_session function per application and must never implement its own separate login flow.
+
+Verify there is no code path where two simultaneous logins can happen for the same application, and no code path where one application's session lookup can block or interfere with a different application's session lookup.
+
+Add logging around session creation, reuse, and expiry, tagged by application, so we can confirm this behaves correctly for every onboarded application and not just the first one that was built.
+
+2. Cross-application dashboard
+
+Add a new landing page shown right after login, independent of any single application. This is a widgets-only view. Reuse data already produced by existing jobs wherever possible instead of adding new data-pulling logic.
+
+Widget one, resource utilization. The existing tenant quota utilization job already calculates CPU and memory usage per application, both current utilization against the overall quota and configured limits against the overall quota, and it already renders this as a pie chart in its own report. Reuse that same calculation and pie chart rendering here, but render one pair of CPU and memory pie charts per onboarded application, so utilization is shown broken out application by application rather than combined across all of them.
+
+Widget two, pod count summary. Show a table with one row per onboarded application, listing the count of running pods and the count of not running pods for that application. Do not combine these into one cumulative total across all applications, only per-application counts. On hover over a row, show a tooltip that breaks that application's counts down further by namespace, since a single application can span multiple namespaces. Clicking an application's row should navigate the user to that application's existing pod status job or status view so they can drill into full detail there.
+
+Widget layout and extensibility. Give every widget a stable widget ID and a display name, stored in configuration rather than hardcoded, similar to how jobs are defined in the existing job configuration file. This is so widgets can be added or removed later purely through configuration, and so a specific widget ID can be referenced when asking for changes. The widget grid must automatically resize and rescale based on how many widgets are currently configured and visible, so the layout stays proportionate whether there are two widgets or eight, without leaving empty space or crowding them together. Do not hardcode the layout for exactly two widgets.
+
+For this first version, only the two widgets described above are needed. Do not build any additional widgets yet, but the widget registry and layout system should be generic enough that adding a third widget later does not require touching the layout logic itself.
