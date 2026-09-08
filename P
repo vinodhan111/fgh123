@@ -1,0 +1,29 @@
+Implement the following RBAC and Admin Console enhancements to the job runner utility.
+
+1. Roles and access control
+- Add a new role called devops, alongside the existing admin, developer, and tester roles.
+- Admin keeps unconditional full access to everything: all applications, all jobs, and the admin console (job access management and user account management). No per-application or per-job checks apply to admin.
+- Devops role has an assigned list of applications. A devops user gets full access to every available job under any application in that list, with no additional per-job assignment needed.
+- Developer and tester roles must pass two checks before a job is visible or runnable: the job's application must be in the user's assigned application list, and the job itself must be in the user's assigned job list. Both must pass.
+- Update the account store schema to add an applications list per user (used by devops, developer, and tester) alongside the existing job list (used by developer and tester only, not devops or admin).
+- Update every place that currently checks job-level role access only (Jobs view, Console view, Dashboard widgets, job trigger endpoints, refresh actions, etc.) to apply: unconditional access for admin, application-only check for devops, and combined application-and-job check for developer/tester.
+
+2. Job enable and disable
+- Add a global enabled flag to each job definition, defaulting to true.
+- Add an optional disabled_for list to each job definition, containing application identifiers for which that job should be treated as disabled even though it is globally enabled.
+- A job is available for a given application only if enabled is true and that application is not in disabled_for, in addition to passing the RBAC checks above.
+- Use enabled=false when the job itself is broken (disables it everywhere). Use disabled_for when the job is fine but should not run against specific applications.
+
+3. Admin Console panel
+- Rename the settings/gear icon in the header to Admin Console. Change it to open a slide-in panel from the right, reusing the existing slide-over panel component already used for job parameters and the log terminal, instead of the current modal dialog.
+- Structure the panel as an accordion with expandable and collapsible sections, similar to a git diff expand/collapse style.
+- Section 1, Job Access: list all jobs with a toggle for the global enabled flag, and an expandable row per job with checkboxes to add or remove applications from that job's disabled_for list.
+- Section 2, User Accounts: move the existing add/list/manage user functionality here unchanged, just relocated from the modal. Extend the role dropdown to include devops. Add an application multi-select field to the add/edit user form (for devops, developer, and tester), alongside the existing job multi-select (for developer and tester only).
+- Restrict the Admin Console entirely to the admin role.
+
+4. User badge
+- Replace the avatar icon next to the logged-in username, currently the first letter of the username, with a badge showing the user's role (admin, devops, developer, or tester).
+- Add a hover tooltip using the existing dark rounded tooltip component showing the full role name.
+- Optionally color-code the badge by role for quick visual scanning, consistent with existing color conventions in the UI.
+
+Implement end to end: schema/config updates, backend access-check logic, and the frontend admin console panel and badge. Follow existing codebase patterns (shared pill button style, shared tooltip/popover component, shared slide-over panel component) and the conventions documented in copilot-instructions.md.
