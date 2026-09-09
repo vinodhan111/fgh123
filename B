@@ -1,0 +1,21 @@
+
+
+After this rename, the application runs, but I'm seeing issues I suspect are connected to it:
+
+1. On first login, the dashboard widgets show a loading/refreshing state. The underlying jobs for those widgets run and complete successfully - visible going from running to completed in the job console. However, the widgets never populate with the completed data. A full manual browser refresh is what actually makes the data appear.
+
+2. Clicking the dashboard's manual refresh button only updates one of the two widgets. The other widget does not refresh at all.
+
+3. In the job console, a "connection lost" status appears on the job tied to cluster/session data.
+
+4. After a full browser refresh, the widget summarizing all applications shows "load failed" for every application it lists.
+
+Please check whether the password-to-secret rename was applied inconsistently somewhere - specifically, whether any code that reads this configuration (the cluster login/authentication flow, the shared session or token manager, or anything authenticating a real-time/live-update channel such as a WebSocket) is still looking for the old key name and silently getting no value. A broken or silently failing login there could explain both the connection lost status and the load failed widgets, and could explain why a job reports completed while the data it should hand to the shared cache/session never actually gets stored or pushed to the frontend.
+
+Please do the following:
+1. Search the entire codebase (app code, config files, environment files, deployment manifests, CI/CD variable definitions) for every remaining reference to the old key name and confirm the rename is applied everywhere it's read at runtime.
+2. Check the cluster login/authentication flow end-to-end to confirm it still obtains a valid session/token after the rename.
+3. Check whether the shared session/cache layer the widgets read from fails silently when the credential lookup fails, and whether job success/failure reporting correctly reflects a failed credential lookup instead of reporting completed.
+4. Check whether the mechanism that notifies the frontend a job finished and data is ready is authenticated with the same credential, and whether a failure there is why the frontend needs a manual reload to update.
+5. Separately, investigate why manual refresh only updates one of the two widgets - treat this as a possibly separate, pre-existing issue rather than assuming it's caused by the rename.
+6. After finding the root cause(s), fix them without changing any other behavior, then confirm: a fresh login followed by job completion updates the affected widgets automatically without a manual reload, and the manual refresh button updates every widget on the dashboard.
