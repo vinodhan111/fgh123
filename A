@@ -1,0 +1,19 @@
+Add a new "Session Management" group to the Admin Console, alongside the existing Job Access, User Accounts, and Widget Control groups, following the same full-view-with-back-button navigation pattern already used by those groups.
+
+Backend: introduce a sessions table as the source of truth for login state. Each row: session_id, user_id, ip_address, login_time, last_seen_time, logout_time (nullable), status (active/expired). Create a row on successful login. Update last_seen_time on authenticated activity. Mark a session expired either on explicit logout or once last_seen_time exceeds the existing inactivity timeout (reuse that same timeout value, and keep any existing timeout exemption logic, such as for an active metrics-polling view, working exactly as it already does).
+
+Add a session_id column to the existing job-run history record, populated from the triggering user's current session at run time. This is what lets a session link forward to exactly the jobs triggered under that login, without needing to merge or de-duplicate repeat logins.
+
+Session Management screen, two sections:
+
+Active Users - table of currently active sessions (status=active). Columns: user ID, login time, status. Sort by login time descending, most recent first. Refresh by polling the backend every 15 to 30 seconds while the screen is open, re-sorting with whatever is currently active. No WebSocket needed here.
+
+History - table of the last 50 sessions overall (active and expired), same columns plus logout time (blank if still active). Most recent login first. Fixed count of 50, not time-boxed.
+
+Clicking any row in either table navigates to that session's job history, filtered by session_id, showing which jobs were triggered during that specific login, with drill-through to a specific job's console.
+
+Concurrent-login flag: for each user, check whether they currently have more than one active session with different IP addresses at the same time. If so, mark that user's row with a warning icon in the Active Users table. Surface a single shared "has active alerts" flag that both the Session Management group entry and the existing header settings icon read from, so the check exists in one place, not duplicated. Do not build any IP-range/CIDR allowlist or distinct-IP-count threshold logic yet - only the same-user-multiple-simultaneous-IPs check.
+
+Display all timestamps in this feature in IST, consistent with the rest of the app.
+
+Separate bug fix to include in the same pass: the running-jobs info popover lets a user click through to a specific job's console. This currently only works when the user is on a plain Dashboard, Jobs, or Console tab. If the user is viewing a history report (or similar detail view), clicking through does not navigate to the target job's console. Fix this so click-through always navigates correctly regardless of what view is open. First locate whatever routing/view-state logic is currently blocking navigation during a history/report view, and confirm the fix does not touch the separate timeout-exemption logic that keeps an active metrics-polling session alive. After the fix, verify: (1) click-through works from every screen, and (2) the metrics-polling timeout exemption still behaves exactly as before.
