@@ -1,0 +1,29 @@
+Part 1: Investigate and report back (no code changes yet)
+
+1. Check the per-application credential configuration for every onboarded application. Confirm whether each one has its own separate service account username and secret configured, or whether any application is currently falling back to a shared default set of credentials. Report exactly which applications, if any, are using the fallback.
+
+2. Confirm whether the underlying cluster login mechanism invalidates a previously issued session or token when the same account logs in again from a separate concurrent request. If applications are sharing credentials, check whether this explains the earlier issue where, when several applications' jobs ran at the same time, only the last one to log in ended up with a working session while the earlier ones failed.
+
+3. Confirm the exact relationship between the two settings that control how long a cluster session stays valid before requiring a fresh login. Report whether they are the same underlying value, whether one is derived from the other, or whether they are independently configured and could drift out of sync. Also report the actual current value each one resolves to at runtime.
+
+4. Search for any leftover implementation of an older refresh design where a session, once obtained, was polled periodically for a period of hours before a fresh login was attempted again. Confirm whether this old logic has been fully removed and replaced by the newer fixed-interval wall-clock refresh schedule, or whether any part of it is still present and could be running in parallel with the newer schedule.
+
+5. Confirm whether disabling a widget, or disabling a specific application within a widget, in the admin console actually prevents the scheduled background refresh from running that widget's or application's job, or whether it only hides the result in the UI while the job keeps running in the background regardless.
+
+6. Confirm what value gets recorded as the trigger source in the persisted cache when a refresh happens as part of the application's startup catch-up process, as opposed to a normal scheduled or manual refresh.
+
+7. Confirm whether the mechanism meant to keep a specific user's login session active while they have a live monitoring job running is actually tied to the CPU and memory metrics polling job specifically, or whether it is only tied to a different feature such as a job's live console output stream. Confirm this is scoped to the individual user who triggered that job, not to every logged-in user.
+
+8. Confirm that every code path needing a Kubernetes session, whether triggered by a scheduled refresh, a manual refresh, or a user directly running a job, always checks for a valid existing cached session first and only performs a fresh login when no valid session exists. Report any path that skips this check and logs in unconditionally.
+
+Report findings for each item above before making any code changes.
+
+Part 2: Implement
+
+1. Create a new dedicated database, separate from the existing job-history database, to store live session state for the cluster login system. For every onboarded application, track its current session status, when it expires, and when the last successful login happened. Structure it so it updates automatically as applications are added or removed, and so it survives full application restarts.
+
+2. Add a proactive renewal step so an application's cluster session refreshes automatically a short time before it expires, instead of waiting for it to expire. Run this check as part of the existing fixed 15-minute wall-clock refresh schedule already used for the dashboard, rather than introducing a separate timer.
+
+3. Make sure this proactive renewal, and the reuse-existing-session behavior described in Part 1 item 8, apply consistently everywhere a Kubernetes session is needed, not just the dashboard widgets, so no code path ever creates a redundant login when a valid one already exists.
+
+Summarize what was changed, and flag anything from Part 1 that needs a decision before it can be implemented.
