@@ -1,0 +1,17 @@
+
+
+Add an application restarting notice feature, similar to how Jenkins shows a please wait page during its own restart instead of a blank screen or connection error.
+
+Requirements:
+
+1. The application has three lifecycle scripts: start, stop, and restart. This feature must trigger only when the restart script is invoked. It must not trigger when the stop script is invoked, and it must not try to handle or disguise the case where the backend host is down for unrelated reasons such as a crash or the server itself being unreachable. In those other cases, the existing behavior of showing a connection failed or unreachable page is fine and should not change.
+
+2. When the restart script runs, anyone currently on the UI, or anyone loading it during the restart window, should automatically see an application is restarting page instead of a blank screen or a broken connection. The page should explain that a restart typically takes anywhere from a few seconds up to one or two minutes, so users understand the tool is not down and do not need to reach out.
+
+3. The page should poll the backend automatically in the background with a lightweight health check, and automatically reload or redirect the user back into the actual application the moment the backend is back up and responding, with no manual refresh needed.
+
+4. Please look at how the start, stop, and restart scripts are currently structured, and propose the best way to implement the restart signal plus whatever needs to stay available to serve this interim page and answer health checks while the main app process itself is down for those few seconds or minutes, for example a marker file or status flag the restart script sets before stopping the app and clears after it starts back up successfully, combined with a small process or proxy layer that survives the app process going down. If there is more than one reasonable way to do this, explain the tradeoffs before implementing.
+
+5. Style the page to match the existing UI's look and feel, including light and dark theme, and reuse existing shared components rather than introducing new one-off styling.
+
+6. As a safety net, consider what should happen if a restart takes far longer than the expected window, for example a configurable timeout after which the page suggests checking with the team instead of polling silently forever. Flag this as optional if it adds meaningful complexity.
